@@ -1,7 +1,23 @@
 [package]
-name = "bin-sampler"
+name = "histogram-sampler"
 version = "0.1.0"
+
+description = "Sampling from a distribution given by a histogram"
+readme = "README.md"
+
 authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
+
+documentation = "https://docs.rs/histogram-sampler"
+homepage = "https://github.com/jonhoo/histogram-sampler"
+repository = "https://github.com/jonhoo/histogram-sampler.git"
+
+keywords = ["sampling", "distribution", "random"]
+categories = ["data-structures", "simulation"]
+
+license = "MIT/Apache-2.0"
+
+[badges]
+travis-ci = { repository = "jonhoo/histogram-sampler" }
 
 [dependencies]
 rand = "0.4"
