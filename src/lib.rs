@@ -317,8 +317,8 @@ mod tests {
                         // things that spill over from bin 0 spill into bin 1
                         assert!(diff > 0.0 && diff < 0.05);
                     } else {
-                        // all other buckets we should have very small errors (< .7pp)
-                        assert!(diff.abs() < 0.007);
+                        // all other buckets we should have very small errors (< 1pp)
+                        assert!(diff.abs() < 0.01);
                     }
                 }
             } else {
