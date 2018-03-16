@@ -111,6 +111,7 @@ use std::collections::Bound;
 /// println!("{}", sampler.ind_sample(&mut rng));
 /// # }
 /// ```
+#[derive(Clone, Debug)]
 pub struct Sampler {
     bins: BTreeMap<usize, (usize, usize)>,
     end: usize,
