@@ -1,0 +1,7 @@
+[package]
+name = "bin-sampler"
+version = "0.1.0"
+authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
+
+[dependencies]
+rand = "0.4"
