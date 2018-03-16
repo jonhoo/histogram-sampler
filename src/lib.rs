@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::collections::Bound;
 
 pub struct Sampler {
-    bins: BTreeMap<usize, usize>,
+    bins: BTreeMap<usize, (usize, usize)>,
     end: usize,
 }
 
@@ -21,25 +21,20 @@ impl Sampler {
             // we want the likelihood of selecting an id in this bin to be proportional to
             // average bin value * `count`. the way to think about that in the context of sampling
             // from a histogram is that there are `count` ranges, each spanning an interval of
-            // width `bin`. we'll keep track of where the last such interval ended (`start`-1), and
-            // start each new interval where the last one ended to get a single large interval
-            // covering all "values" that we can sample uniformly from.
-            for id in 0..count {
-                bins.insert(start, next_id + id);
+            // width `bin`. we can improve on this slightly by just keeping track of a single
+            // interval of width average bin value * count, and then convert the chosen value into
+            // an id by doing a % count.
+            bins.insert(start, (next_id, count));
 
-                // the bucket *centers* on bin, so it captures everything within bin_width/2 on
-                // either side. in general, we should therefore have start entries for it. the
-                // exception is the very first bin, which only holds things in [0, bin_width/2),
-                // since everything above that would be rounded to the *next* bucket. so, for
-                // things in the very first bin, we *actually* want to generate bin_width/4 items
-                // to select from. *but*, since we're oversampling by a factor of 4, that all
-                // cancels out, and we don't have to worry about rounding.
-                if bin == 0 {
-                    start += bin_width;
-                } else {
-                    start += 4 * bin;
-                }
-            }
+            // the bucket *centers* on bin, so it captures everything within bin_width/2 on either
+            // side. in general, the average bin value should therefore just be the bin value. the
+            // exception is the very first bin, which only holds things in [0, bin_width/2), since
+            // everything above that would be rounded to the *next* bin. so, for things in the very
+            // first bin, the average value is really bin_width/4. to avoid fractions, we instead
+            // oversample by a factor of 4.
+            let avg_bin_value = if bin == 0 { bin_width } else { 4 * bin };
+
+            start += count * avg_bin_value;
             next_id += count;
         }
 
@@ -59,14 +54,17 @@ impl rand::distributions::Sample<usize> for Sampler {
 
 impl rand::distributions::IndependentSample<usize> for Sampler {
     fn ind_sample<R: rand::Rng>(&self, rng: &mut R) -> usize {
-        *self.bins
-            .range((
-                Bound::Unbounded,
-                Bound::Included(rng.gen_range(0, self.end)),
-            ))
+        let sample = rng.gen_range(0, self.end);
+
+        // find the bin we're sampling from
+        let &(first_id, n) = self.bins
+            .range((Bound::Unbounded, Bound::Included(sample)))
             .next_back()
             .unwrap()
-            .1
+            .1;
+
+        // find a value in the bin's range
+        first_id + (sample % n)
     }
 }
 
