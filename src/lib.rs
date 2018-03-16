@@ -127,6 +127,10 @@ impl Sampler {
         let mut bins = BTreeMap::default();
 
         for (bin, count) in iter {
+            if count == 0 {
+                continue;
+            }
+
             // we want the likelihood of selecting an id in this bin to be proportional to
             // average bin value * `count`. the way to think about that in the context of sampling
             // from a histogram is that there are `count` ranges, each spanning an interval of
