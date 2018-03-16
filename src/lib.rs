@@ -71,10 +71,13 @@ impl rand::distributions::IndependentSample<usize> for Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::AddAssign;
+    use std::collections::HashMap;
+    use rand::distributions::IndependentSample;
 
     #[test]
     fn it_works() {
-        let data = vec![
+        let stories_per_votecount = vec![
             (0, 16724),
             (10, 16393),
             (20, 4601),
@@ -96,35 +99,35 @@ mod tests {
             (290, 1),
         ];
 
-        let ndata: isize = data.iter().map(|&(_, n)| n as isize).sum();
-        let nvotes = data.iter()
+        // compute stats over the original data so we can compare the generated stream
+        let data_nstories: isize = stories_per_votecount.iter().map(|&(_, n)| n as isize).sum();
+        let data_nvotes = stories_per_votecount
+            .iter()
             .map(|&(bin, n)| (bin * n) as isize)
             .sum::<isize>()
-            + (data.iter().next().unwrap().1 as f64 * 0.25) as isize;
-        let proportions: Vec<_> = data.iter()
-            .map(|&(bin, n)| (bin, (n as f64 / ndata as f64)))
+            + (stories_per_votecount.iter().next().unwrap().1 as f64 * 0.25) as isize;
+
+        // what proportion of stories are in each bin?
+        let data_proportions: Vec<_> = stories_per_votecount
+            .iter()
+            .map(|&(bin, n)| (bin, (n as f64 / data_nstories as f64)))
             .collect();
 
-        let votes_per_story = Sampler::from_bins(data, 10);
-
-        use std::ops::AddAssign;
-        use std::collections::HashMap;
-        use rand::distributions::IndependentSample;
-
+        // make our sampler, and sample from it, keeping track of the resulting vote counts note
+        // that we must sample the same number of votes as are in the original dataset to expect
+        // the resulting histogram to be the same (if we sample more, the bins will shift towards
+        // higher values).
         let mut rng = rand::thread_rng();
         let mut votes = HashMap::new();
-        for _ in 0..nvotes {
+        let vote_sampler = Sampler::from_bins(stories_per_votecount, 10);
+        for _ in 0..data_nvotes {
             votes
-                .entry(votes_per_story.ind_sample(&mut rng))
+                .entry(vote_sampler.ind_sample(&mut rng))
                 .or_insert(0)
                 .add_assign(1);
         }
-        let nstories = votes.len() as isize;
 
-        // number of stories should be roughly (< 5%) the same
-        println!("story count: {} vs {}", nstories, ndata);
-        assert!((nstories - ndata).abs() < ndata / 20);
-
+        // compute the histogram of the sampled dataset
         let mut hist = HashMap::new();
         for (_, votes) in votes {
             hist.entry(10 * ((votes + 5) / 10))
@@ -132,32 +135,38 @@ mod tests {
                 .add_assign(1);
         }
 
-        let ourvotes = hist.iter().map(|(&bin, &n)| bin * n).sum::<isize>()
+        // compute the same statistics over the sampled data
+        let nstories: isize = hist.iter().map(|(_, &n)| n as isize).sum();
+        let nvotes = hist.iter().map(|(&bin, &n)| bin * n).sum::<isize>()
             + (hist[&0] as f64 * 0.25) as isize;
-        // number of stories should be roughly (< 5%) the same
-        println!("vote count: {} vs {}", nvotes, ourvotes);
-        assert!((nvotes - ourvotes).abs() < nvotes / 20);
 
+        // number of stories and votes should be roughly (< 5%) the same
+        println!("story count: {} -> {}", data_nstories, nstories);
+        println!("vote count: {} -> {}", data_nvotes, nvotes);
+        assert!((data_nstories - nstories).abs() < data_nstories / 20);
+        assert!((data_nvotes - nvotes).abs() < data_nvotes / 20);
+
+        // to compare the histograms we need to walk the rows of both
+        let mut expected_props = data_proportions.iter().peekable();
+
+        // let's do it in numerical order so we get more readable output
         let mut keys: Vec<_> = hist.keys().cloned().collect();
         keys.sort();
 
-        let mut expected_props = proportions.iter().peekable();
         for &bin in &keys {
+            // proportion of stories in this bin
             let prop = hist[&bin] as f64 / nstories as f64;
 
+            // get the proportion of stories in the same bin in the original histogram
             if let Some(&&(exp_bin, exp_prop)) = expected_props.peek() {
-                let diff = prop - exp_prop;
+                // make sure we keep moving through the original histogram
+                if exp_bin <= bin as usize {
+                    expected_props.next();
+                }
 
-                if exp_bin == bin as usize {
-                    println!(
-                        "{}\t{:>4.1}%\t->\t{}\t{:>4.1}%\t(diff: {:>5.2})",
-                        exp_bin,
-                        100.0 * exp_prop,
-                        bin,
-                        100.0 * prop,
-                        100.0 * diff
-                    );
-                } else {
+                if exp_bin != bin as usize {
+                    // this better be a small bin if it doesn't match the original
+                    assert!(prop < 0.005);
                     println!(
                         "{}\t{:>4.1}%\t??\t{}\t{:>4.1}%",
                         exp_bin,
@@ -165,14 +174,23 @@ mod tests {
                         bin,
                         100.0 * prop,
                     );
+                    continue;
                 }
 
-                if exp_bin <= bin as usize {
-                    expected_props.next();
-                }
+                // how well did we do?
+                let diff = prop - exp_prop;
 
-                if prop > 0.01 {
-                    // any bucket with 1% or more stories shoud match pretty well
+                println!(
+                    "{}\t{:>4.1}%\t->\t{}\t{:>4.1}%\t(diff: {:>5.2})",
+                    exp_bin,
+                    100.0 * exp_prop,
+                    bin,
+                    100.0 * prop,
+                    100.0 * diff
+                );
+
+                if prop > 0.005 {
+                    // any bucket with .5% or more stories shoud match pretty well
                     // the exception is the first and second bucket
                     if bin == keys[0] {
                         // it's really hard to sample accurately near 0 with a bucket width of 10,
