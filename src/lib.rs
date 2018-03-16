@@ -16,8 +16,6 @@ impl Sampler {
         let mut start = 0;
         let mut next_id = 0;
         let mut bins = BTreeMap::default();
-        let first_bin_avg = bin_width / 4;
-        let first_bin_avg_offby = bin_width % 4;
 
         for (bin, count) in iter {
             // we want the likelihood of selecting an id in this bin to be proportional to
@@ -34,28 +32,12 @@ impl Sampler {
                 // exception is the very first bin, which only holds things in [0, bin_width/2),
                 // since everything above that would be rounded to the *next* bucket. so, for
                 // things in the very first bin, we *actually* want to generate bin_width/4 items
-                // to select from.
+                // to select from. *but*, since we're oversampling by a factor of 4, that all
+                // cancels out, and we don't have to worry about rounding.
                 if bin == 0 {
-                    // rounding is a little awkward here. we want all the things in the first
-                    // bin to *average* to bin_width / 4. first_bin_avg is rounded down with
-                    // some remainder. we want to make sure to distribute in that remainder
-                    if first_bin_avg_offby == 0 {
-                        // no remainder to worry about
-                        start += first_bin_avg;
-                    } else if first_bin_avg_offby == 2 {
-                        // first_bin_avg is off by 0.5 so add 1 for 1/2 of the things
-                        start += first_bin_avg + (id % 2);
-                    } else {
-                        // avg is off by 0.25 or 0.75 so add 1 for 1/4 or 3/4 of the things
-                        let one_every_four = if id % 4 == 0 { 1 } else { 0 };
-                        if first_bin_avg_offby == 1 {
-                            start += first_bin_avg + one_every_four;
-                        } else {
-                            start += first_bin_avg + 1 - one_every_four;
-                        }
-                    }
+                    start += bin_width;
                 } else {
-                    start += bin;
+                    start += 4 * bin;
                 }
             }
             next_id += count;
