@@ -114,10 +114,18 @@ use std::collections::Bound;
 #[derive(Clone, Debug)]
 pub struct Sampler {
     bins: BTreeMap<usize, (usize, usize)>,
+    next_id: usize,
     end: usize,
 }
 
 impl Sampler {
+    /// Report the number of distinct values that can be produced.
+    ///
+    /// Produced samples are guaranteed to be in the range `0..self.nvalues()`.
+    pub fn nvalues(&self) -> usize {
+        self.next_id
+    }
+
     /// Create a new [`Sampler`] from the given input histogram where the bin width is `bin_width`.
     pub fn from_bins<I>(iter: I, bin_width: usize) -> Self
     where
@@ -153,7 +161,8 @@ impl Sampler {
         }
 
         Sampler {
-            bins: bins,
+            bins,
+            next_id,
             end: start,
         }
     }
@@ -234,6 +243,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut votes = HashMap::new();
         let vote_sampler = Sampler::from_bins(stories_per_votecount, 10);
+        assert_eq!(vote_sampler.nvalues(), data_nstories as usize);
         for _ in 0..data_nvotes {
             votes
                 .entry(vote_sampler.ind_sample(&mut rng))

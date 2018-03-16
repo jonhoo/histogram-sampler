@@ -1,6 +1,6 @@
 [package]
 name = "histogram-sampler"
-version = "0.1.2"
+version = "0.1.3"
 
 description = "Sampling from a distribution given by a histogram"
 readme = "README.md"
