@@ -142,7 +142,7 @@ mod tests {
         keys.sort();
 
         let mut expected_props = proportions.iter().peekable();
-        for bin in keys {
+        for &bin in &keys {
             let prop = hist[&bin] as f64 / nstories as f64;
 
             if let Some(&&(exp_bin, exp_prop)) = expected_props.peek() {
@@ -150,7 +150,7 @@ mod tests {
 
                 if exp_bin == bin as usize {
                     println!(
-                        "{}\t{:.1}%\t->\t{}\t{:.1}%\t(diff: {:>5.2})",
+                        "{}\t{:>4.1}%\t->\t{}\t{:>4.1}%\t(diff: {:>5.2})",
                         exp_bin,
                         100.0 * exp_prop,
                         bin,
@@ -159,7 +159,7 @@ mod tests {
                     );
                 } else {
                     println!(
-                        "{}\t{:.1}%\t??\t{}\t{:.1}%",
+                        "{}\t{:>4.1}%\t??\t{}\t{:>4.1}%",
                         exp_bin,
                         100.0 * exp_prop,
                         bin,
@@ -172,11 +172,26 @@ mod tests {
                 }
 
                 if prop > 0.01 {
-                    // any bucket with 1% or more stories shoud match pretty well (within 5pp)
-                    assert!(diff.abs() < 5.0);
+                    // any bucket with 1% or more stories shoud match pretty well
+                    // the exception is the first and second bucket
+                    if bin == keys[0] {
+                        // it's really hard to sample accurately near 0 with a bucket width of 10,
+                        // since the chance of accidentally spilling over to >=5 is so high.
+                        // so, we tolerate a larger (negative) error in this case
+                        //
+                        // NOTE: if we double the widths of the bins, this artefact goes away
+                        assert!(diff < 0.0 && diff > -0.05);
+                    } else if bin == keys[1] {
+                        // things that spill over from bin 0 spill into bin 1
+                        assert!(diff > 0.0 && diff < 0.05);
+                    } else {
+                        // all other buckets we should have very small errors (< .7pp)
+                        assert!(diff.abs() < 0.007);
+                    }
                 }
             } else {
-                println!("\t\t??\t{}\t{:.1}%", bin, 100.0 * prop);
+                println!("\t\t??\t{}\t{:>4.1}%", bin, 100.0 * prop);
+                // bins better be rare for them to differ from original histogram
                 assert!(prop < 0.01);
             }
         }
