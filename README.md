@@ -54,8 +54,8 @@ let stories_per_votecount = vec![
 let mut rng = rand::thread_rng();
 let vote_sampler = Sampler::from_bins(stories_per_votecount, 10 /* bin width */);
 for _ in 0.. {
-    use rand::distributions::IndependentSample;
-    println!("vote for {}", vote_sampler.ind_sample(&mut rng));
+    use rand::distributions::Distribution;
+    println!("vote for {}", vote_sampler.sample(&mut rng));
 }
 ```
 

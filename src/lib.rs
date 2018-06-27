@@ -55,8 +55,8 @@
 //! for _ in 0.. {
 //! # */
 //! # for _ in 0..1 {
-//!     use rand::distributions::IndependentSample;
-//!     println!("vote for {}", vote_sampler.ind_sample(&mut rng));
+//!     use rand::distributions::Distribution;
+//!     println!("vote for {}", vote_sampler.sample(&mut rng));
 //! }
 //! # }
 //! ```
@@ -107,8 +107,8 @@ use std::collections::Bound;
 /// let sampler = Sampler::from_bins(original_data, 10 /* bin width */);
 ///
 /// let mut rng = rand::thread_rng();
-/// use rand::distributions::IndependentSample;
-/// println!("{}", sampler.ind_sample(&mut rng));
+/// use rand::distributions::Distribution;
+/// println!("{}", sampler.sample(&mut rng));
 /// # }
 /// ```
 #[derive(Clone, Debug)]
@@ -168,19 +168,13 @@ impl Sampler {
     }
 }
 
-impl rand::distributions::Sample<usize> for Sampler {
-    fn sample<R: rand::Rng>(&mut self, rng: &mut R) -> usize {
-        use rand::distributions::IndependentSample;
-        self.ind_sample(rng)
-    }
-}
-
-impl rand::distributions::IndependentSample<usize> for Sampler {
-    fn ind_sample<R: rand::Rng>(&self, rng: &mut R) -> usize {
+impl rand::distributions::Distribution<usize> for Sampler {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> usize {
         let sample = rng.gen_range(0, self.end);
 
         // find the bin we're sampling from
-        let &(first_id, n) = self.bins
+        let &(first_id, n) = self
+            .bins
             .range((Bound::Unbounded, Bound::Included(sample)))
             .next_back()
             .unwrap()
@@ -191,12 +185,26 @@ impl rand::distributions::IndependentSample<usize> for Sampler {
     }
 }
 
+#[allow(deprecated)]
+impl rand::distributions::Sample<usize> for Sampler {
+    fn sample<R: rand::Rng>(&mut self, rng: &mut R) -> usize {
+        rand::distributions::Distribution::sample(self, rng)
+    }
+}
+
+#[allow(deprecated)]
+impl rand::distributions::IndependentSample<usize> for Sampler {
+    fn ind_sample<R: rand::Rng>(&self, rng: &mut R) -> usize {
+        rand::distributions::Distribution::sample(self, rng)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ops::AddAssign;
+    use rand::distributions::Distribution;
     use std::collections::HashMap;
-    use rand::distributions::IndependentSample;
+    use std::ops::AddAssign;
 
     #[test]
     fn it_works() {
@@ -246,7 +254,7 @@ mod tests {
         assert_eq!(vote_sampler.nvalues(), data_nstories as usize);
         for _ in 0..data_nvotes {
             votes
-                .entry(vote_sampler.ind_sample(&mut rng))
+                .entry(vote_sampler.sample(&mut rng))
                 .or_insert(0)
                 .add_assign(1);
         }
