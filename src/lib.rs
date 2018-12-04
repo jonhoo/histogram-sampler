@@ -185,20 +185,6 @@ impl rand::distributions::Distribution<usize> for Sampler {
     }
 }
 
-#[allow(deprecated)]
-impl rand::distributions::Sample<usize> for Sampler {
-    fn sample<R: rand::Rng>(&mut self, rng: &mut R) -> usize {
-        rand::distributions::Distribution::sample(self, rng)
-    }
-}
-
-#[allow(deprecated)]
-impl rand::distributions::IndependentSample<usize> for Sampler {
-    fn ind_sample<R: rand::Rng>(&self, rng: &mut R) -> usize {
-        rand::distributions::Distribution::sample(self, rng)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

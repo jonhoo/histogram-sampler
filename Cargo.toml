@@ -1,6 +1,6 @@
 [package]
 name = "histogram-sampler"
-version = "0.2.1"
+version = "0.3.0"
 
 description = "Sampling from a distribution given by a histogram"
 readme = "README.md"
@@ -21,4 +21,4 @@ travis-ci = { repository = "jonhoo/histogram-sampler" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-rand = "0.5"
+rand = "0.6"
