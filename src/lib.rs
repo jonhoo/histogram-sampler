@@ -170,7 +170,7 @@ impl Sampler {
 
 impl rand::distributions::Distribution<usize> for Sampler {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> usize {
-        let sample = rng.gen_range(0, self.end);
+        let sample = rng.gen_range(0..self.end);
 
         // find the bin we're sampling from
         let &(first_id, n) = self
